@@ -1,0 +1,175 @@
+---
+title: "Course Project"
+author: "Sofyan Abdelhay"
+date: '2022-06-27'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(knitr)
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+## Background
+
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement – a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, your goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways.
+
+## Data Sources
+
+The training data for this project are available here: 
+https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv
+
+The test data are available here:
+https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv
+
+## Load Required Packages
+
+```{r}
+## Load caret package
+library(caret)
+```
+
+```{r}
+## Load rpart packages
+library(rpart)
+library(rpart.plot)
+```
+
+```{r}
+## Load rattle package
+library(rattle)
+```
+
+```{r}
+## Load random forest package
+library(randomForest)
+```
+
+```{r}
+## Load gbm package
+library(gbm)
+```
+
+## Download Data Sets
+
+```{r data sets}
+trainURL <- "http://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
+testURL <- "http://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
+
+download.file(trainURL, destfile = "training.csv")
+download.file(testURL, destfile = "testing.csv")
+```
+
+## Load Data Sets
+
+```{r}
+org_training <- read.csv("training.csv")
+org_testing <- read.csv("testing.csv")
+```
+
+## Remove near-zero variance predictors
+
+```{r}
+## Find predictors with near-zero variance
+vars <- nearZeroVar(org_training)
+
+## Clean orginal training and org_testing <- 
+training_data <- org_training[, -vars]
+testing_data <- org_testing[, -vars]
+dim(training_data)
+```
+
+## Remove predictors with 95% NA values
+
+```{r}
+na_val_col <- sapply(training_data, 
+                     function(x) mean(is.na(x))) > 0.95
+
+training_data <- training_data[,na_val_col == FALSE]
+testing_data <- testing_data[,na_val_col == FALSE]
+dim(training_data)
+```
+
+## Remove non-numeric values
+
+```{r}
+training <-  training_data[,8:59]
+testing <- testing_data[,8:59]
+dim(training)
+```
+
+## convert variable classe to factor
+
+```{r}
+training$classe <- as.factor(training$classe)
+```
+
+## Partition data
+
+```{r}
+inTrain <- createDataPartition(training$classe, p = .6, 
+                               list = FALSE)
+new_training <- training[inTrain,]
+new_testing <- training[-inTrain,]
+dim(new_training)
+```
+
+## Decision Tree Model
+
+```{r}
+rpartModel <- train(classe ~ ., data = new_training, 
+                    method = "rpart")
+rpartModel$finalModel
+```
+
+## Predictions
+
+```{r}
+rpartPred <- predict(rpartModel, newdata = new_testing)
+
+## Confusionmatrix accuracy
+confusionMatrix(rpartPred, new_testing$classe)
+```
+
+## Plot Decision Tree
+
+```{r}
+rpart.plot(rpartModel$finalModel)
+```
+
+## Random Forest model
+
+```{r}
+rfModel <- train(classe ~ ., data = new_training, 
+                 method = "rf", ntree = 25)
+rfModel$finalModel
+```
+
+## Predictions
+
+```{r}
+rfPred <- predict(rfModel, newdata = new_testing)
+confusionMatrix(rfPred, new_testing$classe)
+```
+
+## Plot error vs. number of trees
+
+```{r}
+plot(rfModel$finalModel)
+```
+
+## GBM Model
+
+```{r}
+gbmModel <- train(classe ~ ., data = new_training, 
+                  method = "gbm")
+gbmModel$finalModel
+```
+gbmModel did not converge!
+
+## Apply rfModel to test data
+
+```{r}
+predictions <- predict(rfModel, newdata = testing_data)
+predictions
+```
